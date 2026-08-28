@@ -14,4 +14,7 @@ interface GithubActionsRepository {
 
     /** Fetches current run status and metadata for polling. */
     suspend fun getRunDetails(app: AppConfig, runId: Long): Result<WorkflowRunDetails>
+
+    /** Lists recent workflow_dispatch runs for [ref] (branch). */
+    suspend fun listRuns(app: AppConfig, ref: String): Result<List<WorkflowRunDetails>>
 }

@@ -18,6 +18,7 @@ import com.ownly.dash.ui.theme.DashColors
 internal fun StagingBuildSection(
     app: AppConfig,
     isTriggering: Boolean,
+    triggerBlocked: Boolean,
     onBuild: () -> Unit,
 ) {
     DashCard(modifier = Modifier.fillMaxWidth()) {
@@ -36,6 +37,7 @@ internal fun StagingBuildSection(
         DashButton(
             text = "Build App",
             loading = isTriggering,
+            enabled = !triggerBlocked,
             onClick = onBuild,
             modifier = Modifier.fillMaxWidth(),
         )

@@ -26,10 +26,12 @@ import androidx.compose.ui.unit.dp
 import com.ownly.dash.platform.currentDashPlatform
 import com.ownly.dash.platform.isWeb
 import com.ownly.dash.presentation.rememberDashViewModel
+import com.ownly.dash.domain.AppRegistry
 import com.ownly.dash.presentation.ui.components.AppPickerDropdown
 import com.ownly.dash.presentation.ui.components.RunConfigSection
-import com.ownly.dash.presentation.ui.components.RunStatusSection
 import com.ownly.dash.presentation.ui.components.StagingBuildSection
+import com.ownly.dash.presentation.ui.components.TriggerErrorCard
+import com.ownly.dash.presentation.ui.components.WorkflowHistorySection
 import com.ownly.dash.ui.components.DashTabRow
 import com.ownly.dash.ui.theme.DashColors
 import com.ownly.dash.ui.theme.DashLayout
@@ -105,10 +107,15 @@ fun DashMainScreen(modifier: Modifier = Modifier) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    val stagingBlocked =
+                        state.branch == AppRegistry.StagingQuickBuild.BRANCH && state.hasActiveRunOnBranch
+                    val customBlocked = state.hasActiveRunOnBranch
+
                     when (BuildTab.entries[selectedTab]) {
                         BuildTab.Staging -> StagingBuildSection(
                             app = selectedApp,
                             isTriggering = state.isTriggering,
+                            triggerBlocked = stagingBlocked,
                             onBuild = viewModel::triggerStagingBuild,
                         )
                         BuildTab.RunConfiguration -> RunConfigSection(
@@ -116,16 +123,24 @@ fun DashMainScreen(modifier: Modifier = Modifier) {
                             inputSelections = state.inputSelections,
                             branch = state.branch,
                             isTriggering = state.isTriggering,
+                            triggerBlocked = customBlocked,
                             onInputChange = viewModel::updateInput,
                             onBranchChange = viewModel::updateBranch,
                             onTrigger = viewModel::triggerCustomBuild,
                         )
                     }
 
-                    RunStatusSection(
-                        triggerError = state.triggerError,
-                        currentRun = state.currentRun,
-                        onRefresh = viewModel::refreshCurrentStatus,
+                    TriggerErrorCard(triggerError = state.triggerError)
+
+                    WorkflowHistorySection(
+                        branch = state.branch,
+                        runs = state.filteredHistoryRuns,
+                        filter = state.historyFilter,
+                        isLoading = state.isLoadingHistory,
+                        error = state.historyError,
+                        hasActiveRun = state.hasActiveRunOnBranch,
+                        onFilterChange = viewModel::setHistoryFilter,
+                        onRefresh = viewModel::refreshHistory,
                     )
                 }
             }

@@ -35,23 +35,35 @@ internal class GithubActionsRepositoryImpl(
 
     override suspend fun getRunDetails(app: AppConfig, runId: Long): Result<WorkflowRunDetails> =
         runCatching {
-            val run = api.getRun(app, runId)
-            WorkflowRunDetails(
-                runId = run.id,
-                status = WorkflowRunStatus.fromApi(run.status, run.conclusion),
-                htmlUrl = run.htmlUrl,
-            )
+            api.getRun(app, runId).toDetails()
+        }
+
+    override suspend fun listRuns(app: AppConfig, ref: String): Result<List<WorkflowRunDetails>> =
+        runCatching {
+            api.listRecentRuns(app, ref = ref, perPage = 30).map { it.toDetails() }
         }
 
     /** Polls recent runs until a new run appears after dispatch. */
     private suspend fun waitForNewRunId(app: AppConfig, ref: String, since: Instant): Long? {
         repeat(10) { attempt ->
             delay(if (attempt == 0) 1_500L else 2_000L)
-            val newRun = api.listRecentRuns(app, ref).firstOrNull { it.wasCreatedAfter(since) }
+            val newRun = api.listRecentRuns(app, ref, perPage = 5)
+                .firstOrNull { it.wasCreatedAfter(since) }
             if (newRun != null) return newRun.id
         }
         return null
     }
+
+    private fun WorkflowRun.toDetails(): WorkflowRunDetails =
+        WorkflowRunDetails(
+            runId = id,
+            status = WorkflowRunStatus.fromApi(status, conclusion),
+            htmlUrl = htmlUrl,
+            runNumber = runNumber,
+            branch = headBranch,
+            title = displayTitle.ifBlank { name },
+            createdAt = createdAt,
+        )
 
     private fun WorkflowRun.wasCreatedAfter(since: Instant): Boolean {
         val created = runCatching { Instant.parse(createdAt) }.getOrNull() ?: return false

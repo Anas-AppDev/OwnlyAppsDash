@@ -50,12 +50,19 @@ internal class GithubActionsApi(
         return response.body()
     }
 
-    /** GET recent runs for a branch (used to resolve run id after dispatch). */
-    suspend fun listRecentRuns(app: AppConfig, ref: String): List<WorkflowRun> {
+    /**
+     * GET recent workflow_dispatch runs.
+     * Pass [ref] to filter by branch; omit it to list across all branches.
+     */
+    suspend fun listRecentRuns(
+        app: AppConfig,
+        ref: String? = null,
+        perPage: Int = 30,
+    ): List<WorkflowRun> {
         val response = client.get(app.runsUrl()) {
             parameter("event", "workflow_dispatch")
-            parameter("branch", ref)
-            parameter("per_page", 5)
+            if (!ref.isNullOrBlank()) parameter("branch", ref)
+            parameter("per_page", perPage)
         }
         checkResponse(response, "list runs for ${app.repo}")
         return response.body<RunsList>().workflowRuns

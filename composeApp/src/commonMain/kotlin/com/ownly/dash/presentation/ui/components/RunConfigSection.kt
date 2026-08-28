@@ -24,6 +24,7 @@ internal fun RunConfigSection(
     inputSelections: Map<String, String>,
     branch: String,
     isTriggering: Boolean,
+    triggerBlocked: Boolean,
     onInputChange: (key: String, value: String) -> Unit,
     onBranchChange: (String) -> Unit,
     onTrigger: () -> Unit,
@@ -66,6 +67,7 @@ internal fun RunConfigSection(
         DashButton(
             text = "Trigger workflow",
             loading = isTriggering,
+            enabled = !triggerBlocked,
             onClick = onTrigger,
             modifier = Modifier.fillMaxWidth(),
         )

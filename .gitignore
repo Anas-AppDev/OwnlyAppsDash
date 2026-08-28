@@ -26,5 +26,11 @@ package-lock.json
 kotlin-js-store/
 build/wasm/
 
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
 # OS
 Thumbs.db
