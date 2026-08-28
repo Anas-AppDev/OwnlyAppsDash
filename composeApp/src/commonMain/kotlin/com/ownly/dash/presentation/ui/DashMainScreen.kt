@@ -47,6 +47,7 @@ fun DashMainScreen(modifier: Modifier = Modifier) {
     val state by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(BuildTab.Staging.ordinal) }
 
+    // UI
     Box(
         modifier = modifier
             .fillMaxSize()
