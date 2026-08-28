@@ -1,16 +1,30 @@
 *.iml
+.kotlin
 .gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+**/build/
+!src/**/build/
+local.properties
+.idea/
 .DS_Store
-/build
 /captures
 .externalNativeBuild
-local.properties
-server/node_modules/
+.cxx
+
+# Xcode user-specific
+xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Node
 node_modules/
+server/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Kotlin/JS & WASM
+kotlin-js-store/
+build/wasm/
+
+# OS
+Thumbs.db
