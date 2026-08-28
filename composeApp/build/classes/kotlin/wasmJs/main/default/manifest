@@ -1,0 +1,12 @@
+abi_version=2.2.0
+builtins_platform=WASM
+compiler_version=2.2.10
+depends=components.ui-tooling-preview\:library org.jetbrains.compose.material3\:material3 org.jetbrains.compose.material\:material-ripple org.jetbrains.compose.foundation\:foundation org.jetbrains.compose.animation\:animation org.jetbrains.compose.foundation\:foundation-layout org.jetbrains.compose.ui\:ui org.jetbrains.kotlinx\:kotlinx-browser org.jetbrains.compose.runtime\:runtime-saveable org.jetbrains.androidx.savedstate\:savedstate-compose org.jetbrains.compose.runtime\:runtime androidx.compose.runtime\:runtime-saveable org.jetbrains.androidx.savedstate\:savedstate androidx.savedstate\:savedstate androidx.savedstate\:savedstate-compose androidx.compose.runtime\:runtime androidx.compose.runtime\:runtime-annotation org.jetbrains.compose.animation\:animation-core org.jetbrains.androidx.lifecycle\:lifecycle-common androidx.lifecycle\:lifecycle-common org.jetbrains.kotlinx\:kotlinx-coroutines-core org.jetbrains.kotlinx\:atomicfu androidx.annotation\:annotation org.jetbrains.kotlinx\:kotlinx-serialization-core kotlin org.jetbrains.compose.ui\:ui-text org.jetbrains.compose.ui\:ui-graphics org.jetbrains.compose.ui\:ui-unit org.jetbrains.skiko\:skiko org.jetbrains.compose.ui\:ui-geometry org.jetbrains.compose.ui\:ui-util
+ir_signature_versions=1,2
+jsOutputName=composeApp
+language_features=+JsAllowImplementingFunctionInterface +JsAllowValueClassesInExternals +MultiPlatformProjects
+metadata_version=1.4.1
+serializedIrFileFingerprints=3h1jihg8rc0s4.1852u8zfn4bhb 3990pyabt4bqy.1mn2roke103wj
+serializedKlibFingerprint=2c1y7lopweujt.3docnui1d7h4n
+unique_name=OwnlyAppsDash\:composeApp
+wasm_targets=wasm-js

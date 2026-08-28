@@ -54,8 +54,6 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.ui)
             implementation(compose.components.uiToolingPreview)
-            implementation(libs.androidx.lifecycle.runtimeCompose)
-            implementation(libs.androidx.lifecycle.viewmodelCompose)
         }
         wasmJsMain.dependencies {
             implementation(libs.kotlin.stdlib.wasm.js)

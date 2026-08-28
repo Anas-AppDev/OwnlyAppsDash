@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.ownly.dash.composeApp-mergeDebugResources-2:/values-v30/values-v30.xml",
+            "map": [
+                {
+                    "source": "/private/var/folders/gl/w3k5tfls44gd08sjn5s2dg4r0000gn/T/cursor-sandbox-cache/17628856d5e94d0b95d75bc1626b5b24/gradle/caches/8.9/transforms/ce678df4c70f8c63875bdd56a2fcc193/transformed/material3/res/values-v30/values-v30.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "72",
+                        "endOffsets": "123"
+                    }
+                }
+            ]
+        }
+    ]
+}
