@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="WASM Run" type="CompoundRunConfigurationType">
+    <toRun name="WASM compile" type="ShConfigurationType" />
+    <toRun name="WASM server" type="ShConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>
