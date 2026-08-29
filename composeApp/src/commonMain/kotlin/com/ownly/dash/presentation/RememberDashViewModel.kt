@@ -5,7 +5,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import com.ownly.dash.data.remote.GithubActionsApi
 import com.ownly.dash.data.repository.GithubActionsRepositoryImpl
-import com.ownly.dash.domain.usecase.GetWorkflowStatusUseCase
 import com.ownly.dash.domain.usecase.ListWorkflowRunsUseCase
 import com.ownly.dash.domain.usecase.TriggerWorkflowUseCase
 import kotlinx.coroutines.CoroutineScope
@@ -23,7 +22,6 @@ internal fun rememberDashViewModel(): DashViewModel {
         DashViewModel(
             scope = scope,
             triggerWorkflow = TriggerWorkflowUseCase(repository),
-            getWorkflowStatus = GetWorkflowStatusUseCase(repository),
             listWorkflowRuns = ListWorkflowRunsUseCase(repository),
         )
     }

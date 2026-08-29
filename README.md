@@ -48,8 +48,8 @@ UI (DashMainScreen)
 | Config | What it does |
 |--------|----------------|
 | **Android Run** | Installs and launches the Android app |
-| **WASM Run** | Local Gradle WASM dev server (`wasmJsBrowserDevelopmentRun`) |
-| **WASM Hosted** | Opens the deployed site: https://fir-adece.web.app |
+| **WASM Local** | Local Gradle WASM dev server (`wasmJsBrowserDevelopmentRun`) |
+| **WASM Hosted** | Opens https://fir-adece.web.app first, then builds + deploys (refresh browser when deploy finishes) |
 
 iOS: open `iosApp` in Xcode and run the `iosApp` scheme.
 

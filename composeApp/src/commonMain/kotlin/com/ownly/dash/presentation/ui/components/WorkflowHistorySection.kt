@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.ownly.dash.domain.model.WorkflowRunStatus
 import com.ownly.dash.platform.currentDashPlatform
 import com.ownly.dash.platform.isWeb
+import com.ownly.dash.presentation.ActiveWorkflowBanner
 import com.ownly.dash.presentation.HistoryFilter
 import com.ownly.dash.presentation.HistoryRunUiState
 import com.ownly.dash.ui.components.DashCard
@@ -45,29 +46,49 @@ internal fun WorkflowHistorySection(
     filter: HistoryFilter,
     isLoading: Boolean,
     error: String?,
-    hasActiveRun: Boolean,
+    activeBanner: ActiveWorkflowBanner,
     onFilterChange: (HistoryFilter) -> Unit,
     onRefresh: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (hasActiveRun) {
-            DashCard(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Workflow in progress",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = DashColors.Warning,
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Branch \"$branch\" already has a queued or running workflow. " +
-                        "New triggers are blocked until it finishes.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = DashColors.TextSecondary,
-                )
+        when (activeBanner) {
+            ActiveWorkflowBanner.Queued -> {
+                DashCard(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Workflow queued",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = DashColors.PinkSoft,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "A workflow on branch \"$branch\" is in the queue and will be " +
+                            "in progress shortly. New triggers are blocked until it finishes.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = DashColors.TextSecondary,
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            ActiveWorkflowBanner.InProgress -> {
+                DashCard(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Workflow in progress",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = DashColors.Warning,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Branch \"$branch\" already has a running workflow. " +
+                            "New triggers are blocked until it finishes.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = DashColors.TextSecondary,
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+            ActiveWorkflowBanner.None -> Unit
         }
 
         DashCard(modifier = Modifier.fillMaxWidth()) {

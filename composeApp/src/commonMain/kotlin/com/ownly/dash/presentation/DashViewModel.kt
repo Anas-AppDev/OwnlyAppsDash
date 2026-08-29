@@ -4,7 +4,6 @@ import com.ownly.dash.domain.AppRegistry
 import com.ownly.dash.domain.model.AppConfig
 import com.ownly.dash.domain.model.WorkflowRunDetails
 import com.ownly.dash.domain.model.WorkflowRunStatus
-import com.ownly.dash.domain.usecase.GetWorkflowStatusUseCase
 import com.ownly.dash.domain.usecase.ListWorkflowRunsUseCase
 import com.ownly.dash.domain.usecase.TriggerWorkflowUseCase
 import kotlinx.coroutines.CoroutineScope
@@ -20,11 +19,16 @@ import kotlinx.coroutines.launch
 private const val POLL_INTERVAL_MS = 5_000L
 private const val BRANCH_HISTORY_DEBOUNCE_MS = 400L
 
-/** Coordinates UI actions with GitHub workflow use cases and polls status every 5 seconds. */
+/**
+ * Coordinates UI with GitHub workflow use cases.
+ *
+ * After a trigger (or when an active run is found), polls the **list-runs** API every 5s
+ * for the branch. Does **not** repeatedly call GET /actions/runs/{id}.
+ * Banner + trigger lock come from whether that list has queued / in_progress runs.
+ */
 internal class DashViewModel(
     private val scope: CoroutineScope,
     private val triggerWorkflow: TriggerWorkflowUseCase,
-    private val getWorkflowStatus: GetWorkflowStatusUseCase,
     private val listWorkflowRuns: ListWorkflowRunsUseCase,
 ) {
     private val _uiState = MutableStateFlow(
@@ -41,24 +45,25 @@ internal class DashViewModel(
 
     init {
         seedDefaultsForSelectedApp()
-        loadHistory()
+        loadHistory(startPollingIfActive = true)
     }
 
     /** Switches the target app/repo and clears any active run state. */
     fun selectApp(appId: String) {
-        val app = _uiState.value.apps.firstOrNull { it.id == appId } ?: return
+        _uiState.value.apps.firstOrNull { it.id == appId } ?: return
         pollingJob?.cancel()
         _uiState.update {
             it.copy(
                 selectedAppId = appId,
                 currentRun = null,
                 triggerError = null,
+                pendingDispatchRef = null,
                 historyRuns = emptyList(),
                 historyError = null,
             )
         }
         seedDefaultsForSelectedApp()
-        loadHistory()
+        loadHistory(startPollingIfActive = true)
     }
 
     /** Updates a workflow input dropdown value on the Run Configuration tab. */
@@ -72,7 +77,7 @@ internal class DashViewModel(
         branchDebounceJob?.cancel()
         branchDebounceJob = scope.launch {
             delay(BRANCH_HISTORY_DEBOUNCE_MS)
-            loadHistory()
+            loadHistory(startPollingIfActive = true)
         }
     }
 
@@ -101,31 +106,43 @@ internal class DashViewModel(
         triggerWith(app = app, ref = ref, inputs = inputs)
     }
 
-    /** Manual refresh from the status section. */
-    fun refreshCurrentStatus() {
-        val run = _uiState.value.currentRun ?: return
-        val app = _uiState.value.apps.firstOrNull { it.id == run.appId } ?: return
-        scope.launch {
-            fetchAndUpdateStatus(app, run.runId)
-            loadHistory(force = true)
-        }
-    }
-
     fun setHistoryFilter(filter: HistoryFilter) {
         _uiState.update { it.copy(historyFilter = filter) }
     }
 
     fun refreshHistory() {
-        loadHistory(force = true)
+        loadHistory(force = true, startPollingIfActive = true)
     }
 
     private fun triggerWith(app: AppConfig, ref: String, inputs: Map<String, String>) {
-        if (_uiState.value.isTriggering) return
+        val normalizedRef = ref.trim()
+        val state = _uiState.value
+
+        if (state.isTriggering) return
+        if (state.isTriggerBlockedOn(normalizedRef)) {
+            val active = state.historyRuns.firstOrNull { !it.status.isTerminal }
+            _uiState.update {
+                it.copy(
+                    triggerError =
+                        "A workflow is already active on branch \"$normalizedRef\"" +
+                            (active?.let { run -> " (run #${run.runNumber.ifZero(run.runId)})" } ?: "") +
+                            ". Wait for it to finish before triggering another.",
+                )
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                isTriggering = true,
+                pendingDispatchRef = normalizedRef,
+                triggerError = null,
+            )
+        }
 
         scope.launch {
-            // Fresh check for this branch before allowing a new dispatch.
-            val historyResult = listWorkflowRuns(app, ref)
-            if (ref.trim() == _uiState.value.branch.trim()) {
+            val historyResult = listWorkflowRuns(app, normalizedRef)
+            if (normalizedRef == _uiState.value.branch.trim()) {
                 historyResult.onSuccess { runs -> applyHistory(runs) }
             }
 
@@ -133,40 +150,46 @@ internal class DashViewModel(
             if (active != null) {
                 _uiState.update {
                     it.copy(
+                        isTriggering = false,
+                        pendingDispatchRef = null,
                         triggerError =
-                            "A workflow is already ${active.status.statusLabel()} on branch \"$ref\" " +
+                            "A workflow is already ${active.status.statusLabel()} on branch \"$normalizedRef\" " +
                                 "(run #${active.runNumber.ifZero(active.runId)}). " +
                                 "Wait for it to finish before triggering another.",
                     )
                 }
+                startBranchListPolling(app, normalizedRef)
                 return@launch
             }
 
-            _uiState.update { it.copy(isTriggering = true, triggerError = null) }
-
-            triggerWorkflow(app, ref, inputs)
+            triggerWorkflow(app, normalizedRef, inputs)
                 .onSuccess { runId ->
                     _uiState.update {
                         it.copy(
                             isTriggering = false,
-                            branch = ref,
+                            pendingDispatchRef = normalizedRef,
+                            branch = normalizedRef,
                             currentRun = RunUiState(
                                 runId = runId,
                                 appId = app.id,
-                                ref = ref,
-                                summary = inputs.entries.joinToString(" · ") { "${it.key}=${it.value}" },
+                                ref = normalizedRef,
+                                summary = inputs.entries.joinToString(" · ") { entry ->
+                                    "${entry.key}=${entry.value}"
+                                },
                                 status = WorkflowRunStatus.Queued,
                                 htmlUrl = "",
                             ),
                         )
                     }
-                    startPolling(app, runId)
-                    loadHistory(force = true)
+                    // List-runs polling only — no GET /runs/{id} loop.
+                    loadHistory(force = true, startPollingIfActive = false)
+                    startBranchListPolling(app, normalizedRef)
                 }
                 .onFailure { error ->
                     _uiState.update {
                         it.copy(
                             isTriggering = false,
+                            pendingDispatchRef = null,
                             triggerError = error.message ?: "Failed to trigger workflow.",
                         )
                     }
@@ -174,39 +197,57 @@ internal class DashViewModel(
         }
     }
 
-    /** Polls GitHub every 5 seconds until the run reaches a terminal state. */
-    private fun startPolling(app: AppConfig, runId: Long) {
+    /**
+     * Polls workflow **list** for [ref] every 5s.
+     * Stops when there is no queued/in-progress run and no pending dispatch lock.
+     */
+    private fun startBranchListPolling(app: AppConfig, ref: String) {
+        val normalizedRef = ref.trim()
         pollingJob?.cancel()
         pollingJob = scope.launch {
             while (isActive) {
-                fetchAndUpdateStatus(app, runId)
-                loadHistory(force = true)
-                val run = _uiState.value.currentRun?.takeIf { it.runId == runId } ?: break
-                if (run.status.isTerminal) break
                 delay(POLL_INTERVAL_MS)
+                val result = listWorkflowRuns(app, normalizedRef)
+                result
+                    .onSuccess { runs ->
+                        if (normalizedRef == _uiState.value.branch.trim()) {
+                            applyHistory(runs)
+                        } else {
+                            // Branch field changed; still clear pending for this ref if done.
+                            val hasActive = runs.any { !it.status.isTerminal }
+                            if (!hasActive) {
+                                _uiState.update { state ->
+                                    if (state.pendingDispatchRef?.trim() == normalizedRef) {
+                                        state.copy(pendingDispatchRef = null)
+                                    } else {
+                                        state
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .onFailure { /* keep trying next tick */ }
+
+                val state = _uiState.value
+                val activeOnBranch = state.historyRuns.any { !it.status.isTerminal } &&
+                    state.branch.trim() == normalizedRef
+                val pending = state.pendingDispatchRef?.trim() == normalizedRef
+                if (!activeOnBranch && !pending) break
+                // If we're viewing this branch and list has no active but pending remains,
+                // keep polling until the new run shows up or we clear pending after a few empty lists.
+                if (!activeOnBranch && pending) {
+                    // Keep waiting for the dispatched run to appear in the list.
+                    continue
+                }
             }
         }
     }
 
-    private suspend fun fetchAndUpdateStatus(app: AppConfig, runId: Long) {
-        getWorkflowStatus(app, runId).onSuccess { details ->
-            _uiState.update { state ->
-                val current = state.currentRun
-                state.copy(
-                    currentRun = if (current?.runId == runId) {
-                        current.copy(status = details.status, htmlUrl = details.htmlUrl)
-                    } else {
-                        current
-                    },
-                )
-            }
-        }
-    }
-
-    private fun loadHistory(force: Boolean = false) {
+    private fun loadHistory(force: Boolean = false, startPollingIfActive: Boolean = false) {
         val app = _uiState.value.selectedApp ?: return
         val ref = _uiState.value.branch.trim()
         if (ref.isBlank()) {
+            pollingJob?.cancel()
             _uiState.update {
                 it.copy(historyRuns = emptyList(), historyError = null, isLoadingHistory = false)
             }
@@ -218,7 +259,12 @@ internal class DashViewModel(
         historyJob = scope.launch {
             _uiState.update { it.copy(isLoadingHistory = true, historyError = null) }
             listWorkflowRuns(app, ref)
-                .onSuccess { runs -> applyHistory(runs) }
+                .onSuccess { runs ->
+                    applyHistory(runs)
+                    if (startPollingIfActive && runs.any { !it.status.isTerminal }) {
+                        startBranchListPolling(app, ref)
+                    }
+                }
                 .onFailure { error ->
                     _uiState.update {
                         it.copy(
@@ -231,33 +277,34 @@ internal class DashViewModel(
     }
 
     private fun applyHistory(runs: List<WorkflowRunDetails>) {
+        val hasActiveOnGithub = runs.any { !it.status.isTerminal }
+        val active = runs.firstOrNull { !it.status.isTerminal }
+
         _uiState.update { state ->
+            val pending = state.pendingDispatchRef
+            val trackedId = state.currentRun?.runId
+            val sawTrackedRun = trackedId != null && runs.any { it.runId == trackedId }
+            val clearPending = pending != null && (hasActiveOnGithub || sawTrackedRun)
+
             state.copy(
                 isLoadingHistory = false,
                 historyError = null,
                 historyRuns = runs.map { it.toHistoryUi() },
-            )
-        }
-
-        // Resume polling after refresh if an active run exists and we aren't already tracking one.
-        val active = runs.firstOrNull { !it.status.isTerminal } ?: return
-        val current = _uiState.value.currentRun
-        if (current == null || current.status.isTerminal) {
-            val app = _uiState.value.selectedApp ?: return
-            _uiState.update {
-                it.copy(
-                    currentRun = RunUiState(
+                pendingDispatchRef = if (clearPending) null else pending,
+                currentRun = if (active != null) {
+                    RunUiState(
                         runId = active.runId,
-                        appId = app.id,
-                        ref = active.branch.ifBlank { it.branch },
+                        appId = state.selectedAppId.orEmpty(),
+                        ref = active.branch.ifBlank { state.branch },
                         summary = active.title,
                         status = active.status,
                         htmlUrl = active.htmlUrl,
-                    ),
-                    triggerError = null,
-                )
-            }
-            startPolling(app, active.runId)
+                    )
+                } else {
+                    null
+                },
+                triggerError = if (hasActiveOnGithub) null else state.triggerError,
+            )
         }
     }
 

@@ -108,8 +108,8 @@ fun DashMainScreen(modifier: Modifier = Modifier) {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     val stagingBlocked =
-                        state.branch == AppRegistry.StagingQuickBuild.BRANCH && state.hasActiveRunOnBranch
-                    val customBlocked = state.hasActiveRunOnBranch
+                        state.isTriggerBlockedOn(AppRegistry.StagingQuickBuild.BRANCH)
+                    val customBlocked = state.isTriggerBlockedOn(state.branch)
 
                     when (BuildTab.entries[selectedTab]) {
                         BuildTab.Staging -> StagingBuildSection(
@@ -138,7 +138,7 @@ fun DashMainScreen(modifier: Modifier = Modifier) {
                         filter = state.historyFilter,
                         isLoading = state.isLoadingHistory,
                         error = state.historyError,
-                        hasActiveRun = state.hasActiveRunOnBranch,
+                        activeBanner = state.activeWorkflowBanner,
                         onFilterChange = viewModel::setHistoryFilter,
                         onRefresh = viewModel::refreshHistory,
                     )
